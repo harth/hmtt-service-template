@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusion filter.
+  Add patterns here to suppress false-positives or to exclude generated/boilerplate code.
+  Reference: https://spotbugs.readthedocs.io/en/stable/filter.html
+-->
+<FindBugsFilter>
+
+    <!-- Exclude Lombok-generated and MapStruct-generated classes -->
+    <Match>
+        <Class name="~.*MapperImpl"/>
+    </Match>
+
+    <!-- Exclude Spring Boot main application class -->
+    <Match>
+        <Class name="uk.co.hmtt.template.HmttServiceTemplateApplication"/>
+    </Match>
+
+    <!-- Exclude configuration classes (often have intentional patterns SpotBugs flags) -->
+    <Match>
+        <Class name="~.*Config"/>
+    </Match>
+
+    <!-- EI_EXPOSE_REP / EI_EXPOSE_REP2 — Lombok @Data on entities returns internal state;
+         acceptable for JPA entities in this project. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Class name="~uk\.co\.hmtt\.template\..*"/>
+    </Match>
+
+</FindBugsFilter>

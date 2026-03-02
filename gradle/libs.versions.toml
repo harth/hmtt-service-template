@@ -1,0 +1,37 @@
+[versions]
+spring-boot              = "3.5.0"
+spring-dep-mgmt          = "1.1.7"
+springdoc                = "2.8.4"
+mapstruct                = "1.6.3"
+logstash-encoder         = "8.0"
+archunit                 = "1.4.0"
+wiremock                 = "3.12.1"
+testcontainers           = "1.20.6"
+spotbugs-plugin          = "6.1.6"
+spotbugs-tool            = "4.9.3"
+pitest-plugin            = "1.15.0"
+pitest-junit5            = "1.2.1"
+owasp                    = "12.1.1"
+spotless                 = "6.25.0"
+git-hooks                = "0.0.2"
+checkstyle               = "10.21.4"
+jacoco                   = "0.8.12"
+google-java-format       = "1.23.0"
+
+[libraries]
+springdoc-openapi        = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui",       version.ref = "springdoc" }
+mapstruct                = { module = "org.mapstruct:mapstruct",                                   version.ref = "mapstruct" }
+mapstruct-processor      = { module = "org.mapstruct:mapstruct-processor",                         version.ref = "mapstruct" }
+logstash-encoder         = { module = "net.logstash.logback:logstash-logback-encoder",             version.ref = "logstash-encoder" }
+archunit                 = { module = "com.tngtech.archunit:archunit-junit5",                      version.ref = "archunit" }
+wiremock                 = { module = "org.wiremock:wiremock-standalone",                          version.ref = "wiremock" }
+testcontainers           = { module = "org.testcontainers:testcontainers",                         version.ref = "testcontainers" }
+
+[plugins]
+spring-boot              = { id = "org.springframework.boot",               version.ref = "spring-boot" }
+spring-dep-mgmt          = { id = "io.spring.dependency-management",        version.ref = "spring-dep-mgmt" }
+spotbugs                 = { id = "com.github.spotbugs",                    version.ref = "spotbugs-plugin" }
+pitest                   = { id = "info.solidsoft.pitest",                  version.ref = "pitest-plugin" }
+owasp                    = { id = "org.owasp.dependencycheck",              version.ref = "owasp" }
+spotless                 = { id = "com.diffplug.spotless",                  version.ref = "spotless" }
+git-hooks                = { id = "com.github.jakemarsden.git-hooks",       version.ref = "git-hooks" }

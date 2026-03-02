@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build:*)",
+      "Bash(xargs basename:*)",
+      "Bash(./gradlew checkstyleMain:*)",
+      "Bash(xargs jar:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew:*)",
+      "Bash(javap:*)"
+    ]
+  }
+}

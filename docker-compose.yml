@@ -1,0 +1,42 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TODO: Add a real database service here when moving away from H2.
+# Example (PostgreSQL):
+#
+#   db:
+#     image: postgres:16-alpine
+#     environment:
+#       POSTGRES_DB: myappdb
+#       POSTGRES_USER: myapp
+#       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+#     ports:
+#       - "5432:5432"
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U myapp"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: uk.co.hmtt/hmtt-service-template:latest
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      # Override in-memory credentials via environment (still for demo use only)
+      # TODO: Remove in-memory user and wire a real IdP before production.
+      SPRING_SECURITY_USER_NAME: ${APP_USERNAME:-user}
+      SPRING_SECURITY_USER_PASSWORD: ${APP_PASSWORD:-password}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    restart: unless-stopped

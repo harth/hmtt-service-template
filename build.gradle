@@ -1,0 +1,323 @@
+plugins {
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dep.mgmt)
+    alias(libs.plugins.spotbugs)
+    alias(libs.plugins.pitest)
+    alias(libs.plugins.owasp)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.git.hooks)
+    id 'java'
+    id 'checkstyle'
+    id 'jacoco'
+}
+
+group   = 'uk.co.hmtt.template'
+version = '0.0.1-SNAPSHOT'
+description = 'Spring Boot 3.5 demo — package-by-feature reference project'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// ── Source sets ───────────────────────────────────────────────────────────────
+sourceSets {
+    functionalTest {
+        java.srcDir      'src/functionalTest/java'
+        resources.srcDir 'src/functionalTest/resources'
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+    functionalTestImplementation {
+        extendsFrom testImplementation
+    }
+    functionalTestRuntimeOnly {
+        extendsFrom testRuntimeOnly
+    }
+}
+
+// ── Repositories ──────────────────────────────────────────────────────────────
+repositories {
+    mavenCentral()
+}
+
+// ── Dependencies ──────────────────────────────────────────────────────────────
+dependencies {
+    // Spring Boot starters
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // API Documentation
+    implementation libs.springdoc.openapi
+
+    // Object mapping
+    implementation libs.mapstruct
+
+    // Structured JSON logging (used in dev/prod profiles)
+    implementation libs.logstash.encoder
+
+    // Prometheus metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Database (runtime only — H2 in-memory)
+    runtimeOnly 'com.h2database:h2'
+
+    // Lombok  — compileOnly MUST be declared before MapStruct annotationProcessor
+    compileOnly              'org.projectlombok:lombok'
+    annotationProcessor      'org.projectlombok:lombok'
+    // MapStruct processor AFTER Lombok so Lombok-generated code is visible
+    annotationProcessor      libs.mapstruct.processor
+
+    // ── Test dependencies ──────────────────────────────────────────────────
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation libs.archunit
+    testRuntimeOnly    'org.junit.platform:junit-platform-launcher'
+
+    // ── Functional-test dependencies ───────────────────────────────────────
+    functionalTestImplementation 'org.springframework.boot:spring-boot-starter-test'
+    functionalTestImplementation libs.wiremock
+    functionalTestRuntimeOnly    'org.junit.platform:junit-platform-launcher'
+}
+
+// ── Spring Boot build info (exposes version via /actuator/info) ───────────────
+springBoot {
+    buildInfo()
+    mainClass = 'uk.co.hmtt.template.HmttServiceTemplateApplication'
+}
+
+// ── Boot Buildpacks image (alternative to Dockerfile) ─────────────────────────
+bootBuildImage {
+    imageName = "${project.group}/${rootProject.name}:${project.version}"
+    environment = ['BP_JVM_VERSION': '21']
+}
+
+// ── Checkstyle ────────────────────────────────────────────────────────────────
+checkstyle {
+    toolVersion  = libs.versions.checkstyle.get()
+    configFile   = file('config/checkstyle/checkstyle.xml')
+    maxWarnings  = 0
+}
+
+// ── SpotBugs ──────────────────────────────────────────────────────────────────
+def spotbugsExcludeFile = file('config/spotbugs/exclude.xml')
+
+spotbugs {
+    toolVersion    = libs.versions.spotbugs.tool.get()
+    ignoreFailures = false
+    if (spotbugsExcludeFile.exists()) {
+        excludeFilter = spotbugsExcludeFile
+    }
+}
+
+// Only produce reports from main sources; disable on test/functionalTest source sets
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach { task ->
+    if (task.name == 'spotbugsMain') {
+        task.reports {
+            html { required = true }
+            xml  { required = true }
+        }
+    } else {
+        task.enabled = false
+    }
+}
+
+// ── JaCoCo ────────────────────────────────────────────────────────────────────
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
+}
+
+def jacocoExcludes = [
+    '**/HmttServiceTemplateApplication*',
+    '**/*MapperImpl*',
+    '**/*Config*',
+    '**/ErrorResponse*',
+]
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required  = true
+        html.required = true
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, excludes: jacocoExcludes)
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value   = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+        }
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, excludes: jacocoExcludes)
+        }))
+    }
+}
+
+// ── PIT Mutation Testing ──────────────────────────────────────────────────────
+pitest {
+    junit5PluginVersion = libs.versions.pitest.junit5.get()
+    targetClasses       = ['uk.co.hmtt.template.*']
+    targetTests         = ['uk.co.hmtt.template.*']
+    mutationThreshold   = 80
+    coverageThreshold   = 80
+    outputFormats       = ['HTML', 'XML']
+    excludedClasses     = [
+        'uk.co.hmtt.template.HmttServiceTemplateApplication',
+        'uk.co.hmtt.template.common.AppConfig',
+        'uk.co.hmtt.template.common.ErrorResponse',
+    ]
+    excludedTestClasses = ['uk.co.hmtt.template.ArchitectureTest']
+    threads             = 4
+}
+
+// ── OWASP Dependency Check ────────────────────────────────────────────────────
+// NOTE: first run downloads the NVD database and can take several minutes.
+dependencyCheck {
+    failBuildOnCVSS = 7
+}
+
+// ── Spotless ──────────────────────────────────────────────────────────────────
+spotless {
+    java {
+        googleJavaFormat(libs.versions.google.java.format.get())
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+        targetExclude('**/generated/**')
+    }
+}
+
+// ── Git hooks (auto-installed on first Gradle invocation) ─────────────────────
+gitHooks {
+    setHooks(['pre-commit': 'spotlessApplyAndStage'])
+}
+
+tasks.register("spotlessApplyAndStage", Exec) {
+    dependsOn("spotlessApply")
+    commandLine "git", "add", "-A"
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// ── Functional-test app lifecycle ─────────────────────────────────────────────
+ext.bootAppProcess = null
+
+tasks.register('startApp') {
+    description = 'Starts the Spring Boot application in the background for functional testing.'
+    group       = 'verification'
+    dependsOn bootJar
+    doLast {
+        final def jar = tasks.named('bootJar').get().archiveFile.get().asFile
+        project.bootAppProcess = new ProcessBuilder(
+                'java', '-jar', jar.absolutePath,
+                '--spring.profiles.active=local',
+                '--server.port=8080')
+            .inheritIO()
+            .start()
+    }
+}
+
+tasks.register('stopApp') {
+    description = 'Stops the background Spring Boot application started for functional testing.'
+    group       = 'verification'
+    doLast {
+        project.bootAppProcess?.destroyForcibly()
+        project.bootAppProcess = null
+    }
+}
+
+tasks.register('functionalTest', Test) {
+    description     = 'Starts the application, waits for the health endpoint to report UP, then runs functional tests.'
+    group           = 'verification'
+    testClassesDirs = sourceSets.functionalTest.output.classesDirs
+    classpath       = sourceSets.functionalTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter  test
+    dependsOn       startApp
+    finalizedBy     stopApp
+
+    doFirst {
+        final String healthUrl = 'http://localhost:8080/actuator/health'
+        final long   timeoutMs = 60_000L
+        final long   pollMs    = 500L
+        final long   startMs   = System.currentTimeMillis()
+        boolean      healthy   = false
+
+        logger.lifecycle "Waiting for service to become healthy at $healthUrl …"
+
+        while (!healthy && (System.currentTimeMillis() - startMs) < timeoutMs) {
+            try {
+                final def conn = (HttpURLConnection) URI.create(healthUrl).toURL().openConnection()
+                conn.connectTimeout = 1_000
+                conn.readTimeout    = 1_000
+                healthy             = (conn.responseCode == 200)
+                conn.disconnect()
+            } catch (final Exception ignored) {
+                Thread.sleep(pollMs)
+            }
+        }
+
+        if (!healthy) {
+            throw new GradleException(
+                "Timed out after ${timeoutMs / 1_000}s waiting for service health at $healthUrl")
+        }
+
+        logger.lifecycle 'Service is healthy — running functional tests.'
+        systemProperty 'functional.test.base-url', 'http://localhost:8080'
+    }
+}
+
+tasks.register('e2e') {
+    description = 'Runs the full end-to-end test suite (starts context via @SpringBootTest, runs FTs, tears down).'
+    group       = 'verification'
+    dependsOn functionalTest
+}
+
+tasks.register('fullBuild') {
+    description = 'Runs unit tests followed by the e2e suite.'
+    group       = 'build'
+    dependsOn test, e2e
+}
+
+tasks.register('qualityGate') {
+    description = 'Runs every quality check and fails the build if any threshold is unmet.'
+    group       = 'verification'
+    // NOTE: dependencyCheckAnalyze downloads the NVD database on first run — may take a few minutes.
+    dependsOn checkstyleMain, spotbugsMain, jacocoTestCoverageVerification,
+        dependencyCheckAnalyze, tasks.named('pitest')
+}
+
+// Wire spotlessCheck into 'check' so CI fails on unformatted code
+tasks.named('check') {
+    dependsOn spotlessCheck
+}
+
+// Wire the full quality gate into the default build
+build.dependsOn qualityGate
